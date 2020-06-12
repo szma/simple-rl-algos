@@ -9,14 +9,14 @@ from torch.utils.tensorboard import SummaryWriter
 from collections import namedtuple, deque
 
 ENV = 'LunarLander-v2'
-ENV = 'CartPole-v0'
+#ENV = 'CartPole-v0'
 SYNC_NETS = 500
-WARMUP = 20000
+WARMUP = 50000
 REPLAY_BUFFER_SIZE = 1000000
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 GAMMA = 0.99
-EPS_DECAY = .995  # 1/500.
-LEARNING_RATE = 1e-4
+EPS_DECAY = .997  # 1/500.
+LEARNING_RATE = 2e-4
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -25,11 +25,11 @@ class DQNNet(nn.Module):
     def __init__(self, observation_dims, action_dims):
         super(DQNNet, self).__init__()
         self.net = nn.Sequential(
-            nn.Linear(observation_dims, 150),
+            nn.Linear(observation_dims, 200),
             nn.ReLU(),
-            nn.Linear(150, 120),
+            nn.Linear(200, 200),
             nn.ReLU(),
-            nn.Linear(120, action_dims))
+            nn.Linear(200, action_dims))
 
     def forward(self, x):
         return self.net(x)
@@ -186,7 +186,7 @@ def learn(env):
             solve_ratio = np.mean(episode_rewards[-100:])
             print(f'Episode {episode}: {episode_reward}, Solve ratio: {solve_ratio}')
 
-            solved = solve_ratio >= 199.
+            solved = solve_ratio >= 200.
 
             print()
             if solved:
