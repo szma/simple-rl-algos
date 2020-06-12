@@ -135,8 +135,13 @@ def calc_loss(batch, net, target_net):
     #  [4,5,6],
     #  [7,8,9]].gather(dim=1, [2,1,0]) => [3,5,7]
     q_vals_net = net(states_t).gather(dim=1, index=actions_t.unsqueeze(-1)).squeeze(-1)
+    # Basic DQN (take actions and q value from target_net):
+    # q_vals_next_target_net = target_net(next_states_t).max(dim=1)[0]  # .values
+    # Double DQN (take actions from net and q value in target net)
+    net_next_state_actions_t = net(next_states_t).max(dim=1)[1]  # .indices
+    q_vals_next_target_net = target_net(next_states_t).gather(dim=1, index=net_next_state_actions_t.unsqueeze(-1)).squeeze(-1)
+
     # max returns indices and values
-    q_vals_next_target_net = target_net(next_states_t).max(dim=1)[0]  # .values
     q_vals_next_target_net[dones_t] = 0.0
     q_vals_next_target_net.detach()
 
