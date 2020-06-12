@@ -9,13 +9,13 @@ from torch.utils.tensorboard import SummaryWriter
 from collections import namedtuple, deque
 
 ENV = 'LunarLander-v2'
-# ENV = 'CartPole-v0'
+ENV = 'CartPole-v0'
 SYNC_NETS = 500
 WARMUP = 20000
 REPLAY_BUFFER_SIZE = 1000000
 BATCH_SIZE = 64
 GAMMA = 0.99
-EPS_DECAY = .998#1/500.
+EPS_DECAY = .995  # 1/500.
 LEARNING_RATE = 1e-4
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -94,6 +94,10 @@ class Agent():
         next_state, reward, done, _ = self.env.step(action)
         next_state = np.float32(next_state)
 
+        # Hack
+        self.tot_reward += reward
+        reward -= np.absolute(next_state[0])*10
+
         if render:
             env.render()
 
@@ -103,8 +107,6 @@ class Agent():
             reward=reward,
             done=done,
             next_state=next_state))
-
-        self.tot_reward += reward
 
         if not done:
             self.state = next_state
@@ -179,7 +181,7 @@ def learn(env):
             solve_ratio = np.mean(episode_rewards[-100:])
             print(f'Episode {episode}: {episode_reward}, Solve ratio: {solve_ratio}')
 
-            solved = solve_ratio >= 250.
+            solved = solve_ratio >= 199.
 
             print()
             if solved:
