@@ -172,6 +172,7 @@ def learn(env):
     episode = 1
     episode_rewards = []
     agent.epsilon = 1.0
+    max_solve_ratio = 0.0
     while True:
         frame += 1
 
@@ -190,9 +191,10 @@ def learn(env):
 
             print()
             if solved:
-                print("Solved.")
-                torch.save(net.state_dict(), f"{ENV}-best.dat")
-                break
+                if solve_ratio > max_solve_ratio:
+                    max_solve_ratio = solve_ratio
+                    torch.save(net.state_dict(), f"{ENV}-best.dat")
+                    print("Solved better.")
             episode += 1
 
         optimizer.zero_grad()
