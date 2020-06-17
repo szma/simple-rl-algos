@@ -15,8 +15,8 @@ WARMUP = 50000
 REPLAY_BUFFER_SIZE = 1000000
 BATCH_SIZE = 128
 GAMMA = 0.99
-EPS_DECAY = .997  # 1/500.
-LEARNING_RATE = 2e-4
+EPS_DECAY = .998  # 1/500.
+LEARNING_RATE = 1e-4
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -25,11 +25,11 @@ class DQNNet(nn.Module):
     def __init__(self, observation_dims, action_dims):
         super(DQNNet, self).__init__()
         self.net = nn.Sequential(
-            nn.Linear(observation_dims, 200),
+            nn.Linear(observation_dims, 512),
             nn.ReLU(),
-            nn.Linear(200, 200),
+            nn.Linear(512, 512),
             nn.ReLU(),
-            nn.Linear(200, action_dims))
+            nn.Linear(512, action_dims))
 
     def forward(self, x):
         return self.net(x)
@@ -205,8 +205,8 @@ def learn(env):
         if frame % SYNC_NETS == 0:
             target_net.load_state_dict(net.state_dict())
 
-        if frame > 2e6:
-            break
+        #if frame > 5e6:
+            #break
 
 
 def playback(env):
