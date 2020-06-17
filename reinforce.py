@@ -8,7 +8,7 @@ import numpy as np
 
 from copy import copy
 
-ENV = 'CartPole-v0'
+ENV = 'LunarLander-v2'
 GAMMA = 0.99
 LEARNING_RATE = 0.01
 BATCH_EPISODES = 4
@@ -24,9 +24,10 @@ class PolicyGradientNet(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(num_observations, 128),
-            nn.ReLU(),
-            nn.Linear(128, num_actions)
-        )
+            nn.LeakyReLU(),
+            nn.Linear(128, 128),
+            nn.LeakyReLU(),
+            nn.Linear(128, num_actions))
 
     def forward(self, x):
         return self.net(x)
@@ -39,7 +40,8 @@ def calc_qvalues(rewards, gamma=GAMMA):
         R = r + gamma*R  # Bellmann's formula
         q_values.append(R)
 
-    return list(reversed(q_values))
+    q_values = np.array(list(reversed(q_values)))
+    return q_values - q_values.mean()
 
 
 class PolicyGradientAgent():
@@ -54,9 +56,9 @@ class PolicyGradientAgent():
     def play_step(self, render=False):
         episode_reward = None
 
-        state = copy(self.state)
+        current_state = copy(self.state)
 
-        state_t = torch.tensor(state)
+        state_t = torch.tensor(current_state).to(device)
         prob_action_t = self.net(state_t)
         prob_action_t.detach()
         prob_action_t = F.softmax(prob_action_t, dim=0)
@@ -79,12 +81,12 @@ class PolicyGradientAgent():
             self.tot_reward = 0
             self.state = np.float32(self.env.reset())
         
-        return state, action, reward, episode_reward
+        return current_state, action, reward, episode_reward
 
 
 def learn(env):
     writer = SummaryWriter(comment='-reinforce-'+ENV)
-    net = PolicyGradientNet(env.observation_space.shape[0], env.action_space.n)
+    net = PolicyGradientNet(env.observation_space.shape[0], env.action_space.n).to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=LEARNING_RATE)
     agent = PolicyGradientAgent(net, env)
 
@@ -95,6 +97,7 @@ def learn(env):
 
     episode_count = 0
     episode_rewards = []
+    max_mean_episode_rewards = 0.
 
     step_idx = 0
 
@@ -123,12 +126,11 @@ def learn(env):
 
             if episode_count % BATCH_EPISODES == 0:
                 # learn
+                states_t = torch.FloatTensor(batch_states).to(device)
+                actions_t = torch.LongTensor(batch_actions).to(device)
+                qvalues_t = torch.FloatTensor(batch_qvalues).to(device)
+
                 optimizer.zero_grad()
-
-                states_t = torch.FloatTensor(batch_states)
-                actions_t = torch.LongTensor(batch_actions)
-                qvalues_t = torch.FloatTensor(batch_qvalues)
-
                 logits_t = net(states_t)
                 log_prob_t = F.log_softmax(logits_t, dim=1)
                 scaled_log_prob_t = qvalues_t * log_prob_t[range(len(batch_states)), actions_t]
@@ -141,10 +143,11 @@ def learn(env):
                 batch_actions.clear()
                 batch_qvalues.clear()
 
-                writer.add_scalar('loss', loss_t.data.numpy(), episode_count)
+                writer.add_scalar('loss', loss_t.data.cpu().numpy(), episode_count)
 
-            if mean_episode_rewards > 195.:
-                break
+            if mean_episode_rewards > 195. and mean_episode_rewards > max_mean_episode_rewards:
+                torch.save(net.state_dict(), f"{ENV}-reinforce.dat")
+                max_mean_episode_rewards = mean_episode_rewards
     writer.close()
 
 
