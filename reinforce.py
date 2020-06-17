@@ -10,8 +10,8 @@ from copy import copy
 
 ENV = 'LunarLander-v2'
 GAMMA = 0.99
-LEARNING_RATE = 0.01
-BATCH_EPISODES = 4
+LEARNING_RATE = 0.001
+BATCH_EPISODES = 8
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -80,7 +80,7 @@ class PolicyGradientAgent():
             episode_reward = self.tot_reward
             self.tot_reward = 0
             self.state = np.float32(self.env.reset())
-        
+
         return current_state, action, reward, episode_reward
 
 
@@ -151,9 +151,23 @@ def learn(env):
     writer.close()
 
 
+def playback(env):
+    net = PolicyGradientNet(env.observation_space.shape[0], env.action_space.n).to(device)
+    net.load_state_dict(torch.load(f"{ENV}-reinforce.dat"))
+
+    agent = PolicyGradientAgent(net, env)
+    agent.epsilon = 0.0
+
+    while(True):
+        _, _, _, episode_reward = agent.play_step(render=True)
+        if episode_reward is not None:
+            print(f'Episode finished: {episode_reward}')
+
+
 if __name__ == '__main__':
     import gym
     env = gym.make(ENV)
-    env.seed(0)
-    np.random.seed(0)
-    learn(env)
+    # env.seed(0)
+    # np.random.seed(0)
+    # learn(env)
+    playback(env)
