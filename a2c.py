@@ -10,7 +10,9 @@ from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
 ENV = 'CartPole-v0'
+GAMMA = 0.99
 LEARNING_RATE = 0.01
+BATCH_SIZE = 128
 
 
 class A2CNetwork(nn.Module):
@@ -77,7 +79,7 @@ class A2CAgent():
             self.total_episode_reward = 0.
             self.state = np.float32(self.env.reset())
 
-        return current_state, action, reward, episode_reward
+        return current_state, action, next_state, reward, episode_reward
 
 
 def learn(env):
@@ -88,22 +90,34 @@ def learn(env):
 
     writer = SummaryWriter(comment=f"-{ENV}-a2c")
 
-    states = []
-    actions = []
-    rewards = []
-
     step_count = 0
 
     while True:
         step_count += 1
 
-        state, action, reward, episode_reward = agent.step()
+        states = []
+        actions = []
+        rewards = []
 
-        states.append(state)
-        actions.append(action)
-        rewards.append(reward)
+        for i in range(BATCH_SIZE):
+            state, action, next_state, reward, episode_reward = agent.step()
 
-        if step_count > 10: break
+            states.append(state)
+            actions.append(action)
+
+            if episode_reward is not None:  # episode done, handle differently
+                # not_done_ind.append(i)
+                last_state_value = net(torch.tensor(next_state))[1]
+                reward += GAMMA * last_state_value.data.cpu().numpy()  # last "not-done" state gets some more reward later
+
+            rewards.append(reward)
+
+        states_v = torch.tensor(states)
+        actions_v = torch.tensor(actions)
+        rewards_v = torch.tensor(rewards)
+
+        if step_count > 10:
+            break
 
 
 if __name__ == "__main__":

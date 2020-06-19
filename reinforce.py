@@ -11,6 +11,7 @@ from copy import copy
 ENV = 'LunarLander-v2'
 GAMMA = 0.99
 LEARNING_RATE = 0.001
+ENTROPY_BETA = 0.01
 BATCH_EPISODES = 8
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -134,26 +135,31 @@ def learn(env):
                 logits_t = net(states_t)
                 log_prob_t = F.log_softmax(logits_t, dim=1)
                 scaled_log_prob_t = qvalues_t * log_prob_t[range(len(batch_states)), actions_t]
-                loss_t = -scaled_log_prob_t.mean()
+                loss_policy_t = -scaled_log_prob_t.mean()
 
-                loss_t.backward()
+                loss_policy_t.backward(retain_graph=True)
+
+                prob_t = F.softmax(logits_t, dim=1)
+                entropy_t = -(prob_t * log_prob_t).sum(dim=1).mean()
+                entropy_loss_t = -ENTROPY_BETA * entropy_t
+                entropy_loss_t.backward()
                 optimizer.step()
 
                 batch_states.clear()
                 batch_actions.clear()
                 batch_qvalues.clear()
 
-                writer.add_scalar('loss', loss_t.data.cpu().numpy(), episode_count)
+                writer.add_scalar('loss', (loss_policy_t+entropy_loss_t).data.cpu().numpy(), episode_count)
 
             if mean_episode_rewards > 195. and mean_episode_rewards > max_mean_episode_rewards:
-                torch.save(net.state_dict(), f"{ENV}-reinforce.dat")
+                torch.save(net.state_dict(), f"{ENV}-reinforce-entropy.dat")
                 max_mean_episode_rewards = mean_episode_rewards
     writer.close()
 
 
 def playback(env):
     net = PolicyGradientNet(env.observation_space.shape[0], env.action_space.n).to(device)
-    net.load_state_dict(torch.load(f"{ENV}-reinforce.dat"))
+    net.load_state_dict(torch.load(f"{ENV}-reinforce-entropy.dat"))
 
     agent = PolicyGradientAgent(net, env)
     agent.epsilon = 0.0
@@ -169,5 +175,5 @@ if __name__ == '__main__':
     env = gym.make(ENV)
     # env.seed(0)
     # np.random.seed(0)
-    # learn(env)
+    #learn(env)
     playback(env)
